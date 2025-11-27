@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <h1 class="text-3xl font-bold text-gray-800">Product Management</h1>
+    <a href="{{ url_for('admin.dashboard') }}" class="text-blue-500 hover:text-blue-700">Back to Dashboard</a>
+</div>
+
+<!-- Add Product Form -->
+<div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+    <h2 class="text-xl font-bold mb-4">Add New Product</h2>
+    <form action="{{ url_for('admin.add_product') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label class="block text-gray-700 text-sm font-bold mb-2">Name</label>
+            <input type="text" name="name" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div>
+            <label class="block text-gray-700 text-sm font-bold mb-2">Category</label>
+            <select name="category_id" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-gray-700 text-sm font-bold mb-2">Price</label>
+            <input type="number" step="0.01" name="price" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="md:col-span-2 border-t pt-4 mt-2">
+            <label class="flex items-center mb-2">
+                <input type="checkbox" name="is_inventory_managed" class="form-checkbox h-5 w-5 text-blue-600" onchange="toggleStockInput(this, 'new_stock_container')">
+                <span class="ml-2 text-gray-700 font-bold">Inventory Managed?</span>
+            </label>
+
+            <div id="new_stock_container" class="hidden">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Initial Stock Quantity</label>
+                <input type="number" name="stock_quantity" value="0" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+        </div>
+
+        <div class="md:col-span-2 mt-4">
+            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Add Product
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Product List -->
+<div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <table class="min-w-full leading-normal">
+        <thead>
+            <tr>
+                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
+                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Price</th>
+                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock</th>
+                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Active</th>
+                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <form action="{{ url_for('admin.edit_product', id=product.id) }}" method="POST">
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <input type="text" name="name" value="{{ product.name }}" class="border rounded px-2 py-1 w-full">
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <select name="category_id" class="border rounded px-2 py-1 w-full">
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}" {{ 'selected' if cat.id == product.category_id else '' }}>{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <input type="number" step="0.01" name="price" value="{{ product.price }}" class="border rounded px-2 py-1 w-24">
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <div class="flex flex-col">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" name="is_inventory_managed" {{ 'checked' if product.is_inventory_managed else '' }} onchange="toggleStockInput(this, 'stock_container_{{ product.id }}')">
+                                <span class="ml-2 text-xs">Managed</span>
+                            </label>
+                            <div id="stock_container_{{ product.id }}" class="{{ '' if product.is_inventory_managed else 'hidden' }} mt-1">
+                                <input type="number" name="stock_quantity" value="{{ product.stock_quantity }}" class="border rounded px-2 py-1 w-20">
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <input type="checkbox" name="is_active" {{ 'checked' if product.is_active else '' }}>
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <button type="submit" class="text-blue-600 hover:text-blue-900">Update</button>
+                    </td>
+                </form>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function toggleStockInput(checkbox, containerId) {
+    const container = document.getElementById(containerId);
+    if (checkbox.checked) {
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+    }
+}
+</script>
+{% endblock %}
