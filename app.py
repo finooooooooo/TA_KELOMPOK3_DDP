@@ -1,12 +1,18 @@
 import os
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for
 
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
         SECRET_KEY='dev',
-        DATABASE=os.path.join(app.root_path, 'coffee_shop.sqlite'),
+        DB_NAME='kasir_db',
+        DB_USER='postgres',
+        DB_PASS='5432',
+        DB_HOST='localhost',
+        DB_PORT='5432',
+        UPLOAD_FOLDER='static/uploads',
+        MAX_CONTENT_LENGTH=16 * 1024 * 1024, # 16MB limit
     )
 
     if test_config is None:
@@ -38,7 +44,7 @@ def create_app(test_config=None):
     # Temporary Index
     @app.route('/')
     def index():
-        return render_template('base.html')
+        return redirect(url_for('auth.login'))
 
     return app
 

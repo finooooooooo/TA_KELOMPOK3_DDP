@@ -7,9 +7,9 @@
 </div>
 
 <!-- Add Product Form -->
-<div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+<div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-8">
     <h2 class="text-xl font-bold mb-4">Add New Product</h2>
-    <form action="{{ url_for('admin.add_product') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form action="{{ url_for('admin.add_product') }}" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
             <label class="block text-gray-700 text-sm font-bold mb-2">Name</label>
             <input type="text" name="name" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
@@ -25,6 +25,11 @@
         <div>
             <label class="block text-gray-700 text-sm font-bold mb-2">Price</label>
             <input type="number" step="0.01" name="price" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="md:col-span-2">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Image</label>
+            <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
         </div>
 
         <div class="md:col-span-2 border-t pt-4 mt-2">
@@ -47,58 +52,80 @@
     </form>
 </div>
 
-<!-- Product List -->
-<div class="bg-white shadow-md rounded-lg overflow-hidden">
-    <table class="min-w-full leading-normal">
-        <thead>
-            <tr>
-                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
-                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Price</th>
-                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock</th>
-                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Active</th>
-                <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for product in products %}
-            <tr>
-                <form action="{{ url_for('admin.edit_product', id=product.id) }}" method="POST">
-                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <input type="text" name="name" value="{{ product.name }}" class="border rounded px-2 py-1 w-full">
-                    </td>
-                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <select name="category_id" class="border rounded px-2 py-1 w-full">
-                            {% for cat in categories %}
-                            <option value="{{ cat.id }}" {{ 'selected' if cat.id == product.category_id else '' }}>{{ cat.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </td>
-                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <input type="number" step="0.01" name="price" value="{{ product.price }}" class="border rounded px-2 py-1 w-24">
-                    </td>
-                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <div class="flex flex-col">
-                            <label class="inline-flex items-center">
-                                <input type="checkbox" name="is_inventory_managed" {{ 'checked' if product.is_inventory_managed else '' }} onchange="toggleStockInput(this, 'stock_container_{{ product.id }}')">
-                                <span class="ml-2 text-xs">Managed</span>
-                            </label>
-                            <div id="stock_container_{{ product.id }}" class="{{ '' if product.is_inventory_managed else 'hidden' }} mt-1">
-                                <input type="number" name="stock_quantity" value="{{ product.stock_quantity }}" class="border rounded px-2 py-1 w-20">
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <input type="checkbox" name="is_active" {{ 'checked' if product.is_active else '' }}>
-                    </td>
-                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <button type="submit" class="text-blue-600 hover:text-blue-900">Update</button>
-                    </td>
-                </form>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- Product List (Grid Layout) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    {% for product in products %}
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+        <!-- Image Area -->
+        <div class="h-48 bg-gray-200 relative overflow-hidden group">
+            {% if product.image_url %}
+            <img src="/{{ product.image_url }}" class="w-full h-full object-cover transition transform group-hover:scale-110" onerror="this.src=''; this.parentElement.innerHTML='<div class=\'flex items-center justify-center h-full text-gray-400\'>No Image</div>'">
+            {% else %}
+            <div class="flex items-center justify-center h-full text-gray-400">No Image</div>
+            {% endif %}
+
+            <div class="absolute top-0 right-0 p-2">
+                {% if product.is_active %}
+                <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">Active</span>
+                {% else %}
+                <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">Inactive</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Content -->
+        <form action="{{ url_for('admin.edit_product', id=product.id) }}" method="POST" enctype="multipart/form-data" class="flex-1 p-4 flex flex-col space-y-3">
+            <div>
+                <label class="text-xs text-gray-500">Product Name</label>
+                <input type="text" name="name" value="{{ product.name }}" class="w-full border rounded px-2 py-1 font-bold text-gray-800 focus:ring focus:ring-blue-200">
+            </div>
+
+            <div class="flex space-x-2">
+                <div class="w-1/2">
+                    <label class="text-xs text-gray-500">Category</label>
+                    <select name="category_id" class="w-full border rounded px-2 py-1 text-sm">
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {{ 'selected' if cat.id == product.category_id else '' }}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="w-1/2">
+                    <label class="text-xs text-gray-500">Price</label>
+                    <input type="number" step="0.01" name="price" value="{{ product.price }}" class="w-full border rounded px-2 py-1 text-sm font-semibold text-blue-600">
+                </div>
+            </div>
+
+            <div class="border-t pt-2">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" name="is_inventory_managed" {{ 'checked' if product.is_inventory_managed else '' }} onchange="toggleStockInput(this, 'stock_container_{{ product.id }}')" class="form-checkbox h-4 w-4 text-blue-600">
+                        <span class="ml-2 text-xs text-gray-600">Track Stock</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" name="is_active" {{ 'checked' if product.is_active else '' }} class="form-checkbox h-4 w-4 text-green-600">
+                        <span class="ml-2 text-xs text-gray-600">Active</span>
+                    </label>
+                </div>
+
+                <div id="stock_container_{{ product.id }}" class="{{ '' if product.is_inventory_managed else 'hidden' }}">
+                    <label class="text-xs text-gray-500">Current Stock</label>
+                    <input type="number" name="stock_quantity" value="{{ product.stock_quantity }}" class="w-full border rounded px-2 py-1 text-sm bg-gray-50">
+                </div>
+            </div>
+
+            <div class="mt-2">
+                 <label class="text-xs text-gray-500">Update Image</label>
+                 <input type="file" name="image" class="w-full text-xs text-gray-500">
+            </div>
+
+            <div class="mt-auto pt-4">
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endfor %}
 </div>
 
 <script>

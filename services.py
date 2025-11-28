@@ -1,4 +1,4 @@
-import sqlite3
+import psycopg2
 import datetime
 from decimal import Decimal
 
@@ -7,7 +7,7 @@ def process_order(db_conn, user_id, transaction_code, payment_method, amount_rec
     Atomic transaction to process an order.
 
     Args:
-        db_conn: SQLite connection object (must support rollback/commit)
+        db_conn: PostgreSQL connection object (must support rollback/commit)
         user_id: ID of the cashier/user
         transaction_code: Unique code for transaction
         payment_method: 'cash' or 'qris'
@@ -30,7 +30,7 @@ def process_order(db_conn, user_id, transaction_code, payment_method, amount_rec
 
             # Fetch current product state
             cursor.execute(
-                "SELECT name, price, is_inventory_managed, stock_quantity, is_active FROM products WHERE id = ?",
+                "SELECT name, price, is_inventory_managed, stock_quantity, is_active FROM products WHERE id = %s",
                 (product_id,)
             )
             product = cursor.fetchone()
@@ -48,7 +48,7 @@ def process_order(db_conn, user_id, transaction_code, payment_method, amount_rec
 
                 # Deduct Stock
                 new_stock = product['stock_quantity'] - qty
-                cursor.execute("UPDATE products SET stock_quantity = ? WHERE id = ?", (new_stock, product_id))
+                cursor.execute("UPDATE products SET stock_quantity = %s WHERE id = %s", (new_stock, product_id))
 
             # Snapshot data
             price = Decimal(str(product['price']))
@@ -63,24 +63,28 @@ def process_order(db_conn, user_id, transaction_code, payment_method, amount_rec
                 'subtotal': subtotal
             })
 
+        # Calculate Tax (10%)
+        tax_amount = total_amount * Decimal('0.10')
+        grand_total = total_amount + tax_amount
+
         # Create Order Header
-        change_amount = Decimal(amount_received) - total_amount
+        change_amount = Decimal(amount_received) - grand_total
         if change_amount < 0:
-             raise Exception(f"Insufficient payment. Total: {total_amount}, Received: {amount_received}")
+             raise Exception(f"Insufficient payment. Total: {grand_total}, Received: {amount_received}")
 
         cursor.execute(
-            """INSERT INTO orders (user_id, transaction_code, total_amount, payment_method, amount_received, change_amount)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (user_id, transaction_code, str(total_amount), payment_method, str(amount_received), str(change_amount))
+            """INSERT INTO orders (user_id, transaction_code, total_amount, tax_amount, payment_method, amount_received, change_amount)
+               VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (user_id, transaction_code, grand_total, tax_amount, payment_method, amount_received, change_amount)
         )
-        order_id = cursor.lastrowid
+        order_id = cursor.fetchone()['id']
 
         # Create Order Items
         for item in final_items:
             cursor.execute(
                 """INSERT INTO order_items (order_id, product_id, product_name_snapshot, price_snapshot, quantity, subtotal)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (order_id, item['product_id'], item['name_snapshot'], str(item['price_snapshot']), item['quantity'], str(item['subtotal']))
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (order_id, item['product_id'], item['name_snapshot'], item['price_snapshot'], item['quantity'], item['subtotal'])
             )
 
         db_conn.commit()
@@ -98,7 +102,7 @@ def void_order(db_conn, order_id, user_id):
 
     try:
         # Get order status
-        cursor.execute("SELECT status FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("SELECT status FROM orders WHERE id = %s", (order_id,))
         order = cursor.fetchone()
 
         if not order:
@@ -112,7 +116,7 @@ def void_order(db_conn, order_id, user_id):
             SELECT oi.product_id, oi.quantity, p.is_inventory_managed
             FROM order_items oi
             JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id = ?
+            WHERE oi.order_id = %s
         """, (order_id,))
 
         items = cursor.fetchall()
@@ -121,14 +125,14 @@ def void_order(db_conn, order_id, user_id):
         for item in items:
             if item['is_inventory_managed']:
                 cursor.execute(
-                    "UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?",
+                    "UPDATE products SET stock_quantity = stock_quantity + %s WHERE id = %s",
                     (item['quantity'], item['product_id'])
                 )
 
         # Update Order Status
         now = datetime.datetime.now()
         cursor.execute(
-            "UPDATE orders SET status = 'cancelled', voided_by = ?, voided_at = ? WHERE id = ?",
+            "UPDATE orders SET status = 'cancelled', voided_by = %s, voided_at = %s WHERE id = %s",
             (user_id, now, order_id)
         )
 

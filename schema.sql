@@ -1,11 +1,18 @@
 -- 1. AUTH & ROLES
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS roles;
+
 CREATE TABLE roles (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE -- 'admin', 'cashier'
 );
 
 CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     role_id INTEGER NOT NULL,
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -16,12 +23,12 @@ CREATE TABLE users (
 
 -- 2. PRODUCTS (HYBRID INVENTORY)
 CREATE TABLE categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE
 );
 
 CREATE TABLE products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     category_id INTEGER NOT NULL,
     name VARCHAR(100) NOT NULL,
     price DECIMAL(15, 2) NOT NULL,
@@ -40,10 +47,11 @@ CREATE TABLE products (
 
 -- 3. ORDERS (HEADER)
 CREATE TABLE orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL, -- Cashier
     transaction_code VARCHAR(20) NOT NULL UNIQUE, -- Generate: TRX-YYYYMMDD-XXXX
     total_amount DECIMAL(15, 2) NOT NULL,
+    tax_amount DECIMAL(15, 2) DEFAULT 0,
     payment_method VARCHAR(50) NOT NULL, -- 'cash', 'qris'
     amount_received DECIMAL(15, 2),
     change_amount DECIMAL(15, 2),
@@ -60,7 +68,7 @@ CREATE TABLE orders (
 
 -- 4. ORDER ITEMS (SNAPSHOTS)
 CREATE TABLE order_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL,
     product_id INTEGER NOT NULL,
 

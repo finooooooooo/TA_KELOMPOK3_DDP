@@ -1,9 +1,17 @@
-from flask import Blueprint, render_template, request, g, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, g, redirect, url_for, flash, session, current_app
 from decorators import login_required, admin_required
 import db
 import services
+import os
+from werkzeug.utils import secure_filename
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @bp.route('/dashboard')
 @admin_required
@@ -44,10 +52,24 @@ def add_product():
     is_inventory_managed = 'is_inventory_managed' in request.form
     stock_quantity = request.form.get('stock_quantity', 0)
 
+    image_url = ''
+    if 'image' in request.files:
+        file = request.files['image']
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            # Ensure upload folder exists (it should, but safety first)
+            os.makedirs(os.path.join(current_app.root_path, upload_folder), exist_ok=True)
+
+            filepath = os.path.join(current_app.root_path, upload_folder, filename)
+            file.save(filepath)
+            # Store relative path for frontend
+            image_url = f"{upload_folder}/{filename}"
+
     database = db.get_db()
     database.execute(
-        "INSERT INTO products (name, category_id, price, is_inventory_managed, stock_quantity) VALUES (?, ?, ?, ?, ?)",
-        (name, category_id, price, is_inventory_managed, stock_quantity)
+        "INSERT INTO products (name, category_id, price, is_inventory_managed, stock_quantity, image_url) VALUES (%s, %s, %s, %s, %s, %s)",
+        (name, category_id, price, is_inventory_managed, stock_quantity, image_url)
     )
     database.commit()
     return redirect(url_for('admin.products'))
@@ -63,12 +85,32 @@ def edit_product(id):
     is_active = 'is_active' in request.form
 
     database = db.get_db()
-    database.execute(
-        """UPDATE products
-           SET name=?, category_id=?, price=?, is_inventory_managed=?, stock_quantity=?, is_active=?
-           WHERE id=?""",
-        (name, category_id, price, is_inventory_managed, stock_quantity, is_active, id)
-    )
+
+    # Handle Image Upload
+    update_image_sql = ""
+    params = [name, category_id, price, is_inventory_managed, stock_quantity, is_active]
+
+    if 'image' in request.files:
+        file = request.files['image']
+        if file and file.filename != '' and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            os.makedirs(os.path.join(current_app.root_path, upload_folder), exist_ok=True)
+
+            filepath = os.path.join(current_app.root_path, upload_folder, filename)
+            file.save(filepath)
+
+            image_url = f"{upload_folder}/{filename}"
+            update_image_sql = ", image_url=%s"
+            params.append(image_url)
+
+    params.append(id)
+
+    query = f"""UPDATE products
+           SET name=%s, category_id=%s, price=%s, is_inventory_managed=%s, stock_quantity=%s, is_active=%s {update_image_sql}
+           WHERE id=%s"""
+
+    database.execute(query, tuple(params))
     database.commit()
     return redirect(url_for('admin.products'))
 
