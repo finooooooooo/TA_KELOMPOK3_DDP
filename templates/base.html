@@ -3,38 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coffee Shop POS</title>
+    <title>CoffeePOS Enterprise</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <nav class="bg-white shadow-lg mb-6">
+<body class="bg-gray-50 min-h-screen font-sans">
+
+    <nav class="bg-blue-900 shadow-lg mb-6">
         <div class="max-w-7xl mx-auto px-4">
-            <div class="flex justify-between">
-                <div class="flex space-x-7">
-                    <div>
-                        <a href="/" class="flex items-center py-4 px-2">
-                            <span class="font-semibold text-gray-500 text-lg">CoffeePOS</span>
-                        </a>
-                    </div>
+            <div class="flex justify-between items-center h-16">
+                
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center text-white font-bold text-xl tracking-wide">
+                        <i class="fas fa-coffee mr-2"></i> CoffeePOS
+                    </a>
                 </div>
-                <div class="hidden md:flex items-center space-x-3 ">
+
+                <div class="flex items-center space-x-4">
                     {% if session.get('user_id') %}
-                        <a href="/logout" class="py-2 px-2 font-medium text-gray-500 rounded hover:bg-gray-200 transition duration-300">Log Out</a>
+                        <span class="text-blue-200 text-sm mr-2">
+                            Hi, {{ session.get('role_name')|capitalize }}
+                        </span>
+                        
+                        <a href="{{ url_for('auth.logout') }}" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-300">
+                            Log Out
+                        </a>
                     {% else %}
-                        <a href="/login" class="py-2 px-2 font-medium text-gray-500 rounded hover:bg-gray-200 transition duration-300">Log In</a>
+                        <a href="{{ url_for('auth.login') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-300">
+                            Log In
+                        </a>
                     {% endif %}
                 </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mx-auto px-4">
+    <div class="container mx-auto px-4 pb-10">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6 space-y-2">
+                    {% for category, message in messages %}
+                        <div class="p-4 rounded-md shadow-sm border-l-4 {{ 'bg-red-100 border-red-500 text-red-700' if category == 'error' else 'bg-green-100 border-green-500 text-green-700' }}">
+                            <p class="font-bold">{{ category|capitalize }}</p>
+                            <p>{{ message }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
         {% block content %}
-        <div class="text-center mt-10">
-            <h1 class="text-4xl font-bold text-gray-800">Welcome to CoffeePOS</h1>
-            <p class="mt-4 text-gray-600">Please log in to continue.</p>
-        </div>
         {% endblock %}
     </div>
-</body>
-</html>
+
+    <footer class="text-center text-gray-4

@@ -11,17 +11,23 @@ bp = Blueprint('api', __name__, url_prefix='/api')
 @login_required
 def get_products():
     database = db.get_db()
-    # Fetch categories for grouping
-    categories = database.execute("SELECT id, name FROM categories").fetchall()
+    
+    # PERBAIKAN: Pakai Cursor Context Manager
+    with database.cursor() as cur:
+        # Fetch categories
+        cur.execute("SELECT id, name FROM categories")
+        categories = cur.fetchall()
 
-    # Fetch active products
-    products = database.execute("""
-        SELECT p.id, p.category_id, p.name, p.price, p.is_inventory_managed, p.stock_quantity, p.image_url, c.name as category_name
-        FROM products p
-        JOIN categories c ON p.category_id = c.id
-        WHERE p.is_active = 1
-    """).fetchall()
+        # Fetch active products
+        cur.execute("""
+            SELECT p.id, p.category_id, p.name, p.price, p.is_inventory_managed, p.stock_quantity, p.image_url, c.name as category_name
+            FROM products p
+            JOIN categories c ON p.category_id = c.id
+            WHERE p.is_active = TRUE
+        """)
+        products = cur.fetchall()
 
+    # Format data untuk JSON
     products_list = []
     for p in products:
         products_list.append({
@@ -37,6 +43,7 @@ def get_products():
 
     return jsonify({
         'products': products_list,
+        # List comprehension aman karena RealDictCursor return dict
         'categories': [{'id': c['id'], 'name': c['name']} for c in categories]
     })
 
@@ -55,7 +62,7 @@ def create_order():
     if not cart_items:
         return jsonify({'error': 'Cart is empty'}), 400
 
-    if not payment_method or not amount_received:
+    if not payment_method or amount_received is None:
         return jsonify({'error': 'Payment details missing'}), 400
 
     # Generate Transaction Code
@@ -66,6 +73,8 @@ def create_order():
     database = db.get_db()
 
     try:
+        # services.process_order sudah kita minta refactor sebelumnya
+        # Dia akan handle cursor sendiri di dalamnya, kita cuma lempar koneksi
         order_id = services.process_order(
             database,
             session['user_id'],
@@ -76,4 +85,6 @@ def create_order():
         )
         return jsonify({'success': True, 'order_id': order_id, 'transaction_code': transaction_code}), 201
     except Exception as e:
+        # Print error di terminal biar lu tau kenapa kalau gagal
+        print(f"ERROR create_order: {e}") 
         return jsonify({'error': str(e)}), 400
